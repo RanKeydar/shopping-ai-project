@@ -1,5 +1,7 @@
 # frontend/services/orders_service.py
 
+from __future__ import annotations
+
 import time
 import streamlit as st
 from dataclasses import dataclass, asdict
@@ -7,9 +9,7 @@ from typing import Dict, List, Optional, Literal
 
 from services.auth_service import auth_service
 
-
 ORDERS_KEY = "orders_by_user"
-
 
 OrderStatus = Literal["created", "paid", "shipped", "delivered", "cancelled"]
 
@@ -33,9 +33,21 @@ class Order:
 
 
 class OrdersService:
-   
+    # -------------------------
+    # Internals
+    # -------------------------
+
     def _get_store(self) -> Dict[str, Dict[int, dict]]:
-                if ORDERS_KEY not in st.session_state:
+        """
+        Structure:
+        {
+          "username": {
+              1: {order_dict},
+              2: {order_dict},
+          }
+        }
+        """
+        if ORDERS_KEY not in st.session_state:
             st.session_state[ORDERS_KEY] = {}
         return st.session_state[ORDERS_KEY]
 
@@ -55,11 +67,11 @@ class OrdersService:
         return max(bucket.keys()) + 1
 
     def _dict_to_order(self, data: dict) -> Order:
-        lines = [OrderLine(**ln) for ln in data["lines"]]
+        lines = [OrderLine(**ln) for ln in data.get("lines", [])]
         return Order(
-            order_id=data["order_id"],
-            user=data["user"],
-            created_at=data["created_at"],
+            order_id=int(data["order_id"]),
+            user=str(data["user"]),
+            created_at=int(data["created_at"]),
             status=data["status"],
             lines=lines,
             notes=data.get("notes"),
@@ -72,11 +84,10 @@ class OrdersService:
         }
 
     # -------------------------
-    # API ציבורי (מוכן ל-UI)
+    # Public API (for UI)
     # -------------------------
 
     def list_orders(self) -> List[Order]:
-        
         username = self._current_user()
         if not username:
             return []
@@ -96,7 +107,6 @@ class OrdersService:
         return self._dict_to_order(data) if data else None
 
     def create_order(self, lines: List[OrderLine], notes: Optional[str] = None) -> Order:
-        
         username = self._current_user()
         if not username:
             raise RuntimeError("Not authenticated: cannot create order")
@@ -123,7 +133,6 @@ class OrdersService:
         return order
 
     def cancel_order(self, order_id: int) -> bool:
-        
         username = self._current_user()
         if not username:
             return False
@@ -134,13 +143,13 @@ class OrdersService:
             return False
 
         data = bucket[oid]
-        # אפשר להקשיח: לא לאפשר ביטול אחרי shipped וכו'
+
+        # אפשר להקשיח: לא לאפשר ביטול אחרי shipped/delivered וכו'
         data["status"] = "cancelled"
         bucket[oid] = data
         return True
 
     def get_order_total(self, order: Order) -> Optional[float]:
-        
         total = 0.0
         for ln in order.lines:
             if ln.unit_price is None:

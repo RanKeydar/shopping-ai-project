@@ -1,5 +1,7 @@
 import streamlit as st
 from services.items_service import list_items
+from services.auth_service import auth_service
+from components.auth_box import render_auth_box
 from services.api_client import APIClientError, APIConnectionError
 
 st.title("Smoke test: backend connection")
