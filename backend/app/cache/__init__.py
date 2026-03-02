@@ -1,1 +1,1 @@
-from .redis_client import redis_client  # noqa: F401
+from .redis_client import get_redis  # noqa: F401
