@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from fastapi import APIRouter, Depends, Query, HTTPException, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.concurrency import run_in_threadpool
 from redis.asyncio import Redis
@@ -20,6 +20,7 @@ CACHE_TTL_SECONDS = 60
 @router.get("", response_model=list[ItemOut])
 async def list_items(
     request: Request,
+    response: Response,
     q: str | None = Query(None, min_length=1),
     price_op: str | None = Query(None, description="One of: <, <=, =, >=, >"),
     price: float | None = Query(None, ge=0),
@@ -46,6 +47,7 @@ async def list_items(
     try:
         cached = await redis.get(cache_key)
         if cached:
+            response.headers["X-Cache"] = "HIT"
             return json.loads(cached)
     except Exception:
         pass
@@ -71,4 +73,5 @@ async def list_items(
     except Exception:
         pass
 
+    response.headers["X-Cache"] = "MISS"
     return items
