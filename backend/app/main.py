@@ -5,10 +5,12 @@ from app import models  # noqa: F401  <-- חשוב: טוען את המודלים
 
 from app.api.routes.items import router as items_router
 from app.db import Base, engine, SessionLocal
+from app.api.routes.auth import router as auth_router
 
 app = FastAPI()
 
 app.include_router(items_router)
+app.include_router(auth_router)
 
 
 @app.on_event("startup")

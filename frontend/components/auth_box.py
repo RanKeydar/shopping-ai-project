@@ -1,5 +1,3 @@
-# frontend/components/auth_box.py
-
 import streamlit as st
 from services.auth_service import auth_service
 

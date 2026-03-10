@@ -3,7 +3,9 @@ import streamlit as st
 from components.items_table import render_items_table
 from services.items_service import list_items
 from services.api_client import APIClientError, APIConnectionError
+from components.sidebar import render_sidebar
 
+render_sidebar()    
 
 if "main_search_query" not in st.session_state:
     st.session_state.main_search_query = ""

@@ -5,10 +5,11 @@ from datetime import datetime
 from services.auth_service import auth_service
 from services.orders_service import orders_service, OrderLine
 from components.auth_box import render_auth_box
+from components.sidebar import render_sidebar
+
+render_sidebar()
 
 st.title("הזמנות")
-
-render_auth_box()
 
 if not auth_service.is_authenticated():
     st.info("כדי לצפות ולהזמין, צריך להתחבר.")
