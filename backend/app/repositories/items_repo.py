@@ -1,9 +1,9 @@
 from __future__ import annotations
-
 from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import Session
-
 from app.models import Item
+
+import re
 
 
 _ALLOWED_OPS = {"<", "<=", "=", ">=", ">"}
@@ -37,7 +37,7 @@ def list_items(
 
     # Search (OR between keywords)
     if q:
-        keywords = [w.strip() for w in q.split() if w.strip()]
+        keywords = [w.strip() for w in re.split(r"[,\s]+", q) if w.strip()]
         if keywords:
             search_conditions = [Item.name.ilike(f"%{kw}%") for kw in keywords]
             conditions.append(or_(*search_conditions))
