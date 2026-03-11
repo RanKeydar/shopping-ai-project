@@ -1,25 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.api.deps.current_user import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import UserLogin, Token
-from app.core.security import verify_password
+from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
+from app.services.auth_service import delete_current_user, login_user, register_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def register(payload: UserCreate, db: Session = Depends(get_db)):
+    return register_user(db, payload)
+
+
 @router.post("/login", response_model=Token)
-def login(data: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == data.username).first()
+def login(payload: UserLogin, db: Session = Depends(get_db)):
+    return login_user(db, payload.username, payload.password)
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+@router.get("/me", response_model=UserResponse)
+def read_me(current_user: User = Depends(get_current_user)):
+    return current_user
 
-    return {
-        "access_token": str(user.id),
-        "token_type": "bearer",
-    }
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    delete_current_user(db, current_user)
