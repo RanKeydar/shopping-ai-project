@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import LoginRequest, TokenResponse
+from app.schemas.user import UserLogin, Token
 from app.core.security import verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+@router.post("/login", response_model=Token)
+def login(data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == data.username).first()
 
     if not user:
