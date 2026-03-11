@@ -31,3 +31,8 @@ def get_current_user(
         )
 
     return user
+
+from typing import Annotated
+from fastapi import Depends
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
