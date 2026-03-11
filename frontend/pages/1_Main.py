@@ -1,6 +1,6 @@
 import streamlit as st
 
-from components.items_table import render_items_table
+from components.items_grid import render_items_grid
 from services.items_service import list_items
 from services.api_client import APIClientError, APIConnectionError
 from components.sidebar import render_sidebar
@@ -87,26 +87,23 @@ with action_cols[1]:
     st.button("Clear", on_click=clear_main_filters, use_container_width=True)
 
 try:
-    items = list_items(
-        q=search_query,
-        price_op=price_op if use_price else None,
-        price=price if use_price else None,
-        stock_op=stock_op if use_stock else None,
-        stock=stock if use_stock else None,
-    )
+    with st.spinner("Loading items..."):
+        items = list_items(
+            q=search_query,
+            price_op=price_op if use_price else None,
+            price=price if use_price else None,
+            stock_op=stock_op if use_stock else None,
+            stock=stock if use_stock else None,
+        )
 
     if search_query.strip() or use_price or use_stock:
         st.caption(f"Search returned {len(items)} item(s)")
     else:
         st.caption(f"Showing all available items ({len(items)})")
+   
+    render_items_grid(items, columns=3, show_count=False)
 
-    render_items_table(items)
-
-except APIConnectionError as e:
-    st.error(f"Backend not reachable ❌\n{e}")
-
+except APIConnectionError:
+    st.error("Could not connect to the server.")
 except APIClientError as e:
-    st.error(
-        f"Backend responded with error ❌\n"
-        f"{e.detail.status_code}: {e.detail.message}"
-    )
+    st.error(f"Server error: {e}")
