@@ -4,7 +4,9 @@ from components.items_grid import render_items_grid
 from services.items_service import list_items
 from services.api_client import APIClientError, APIConnectionError
 from components.sidebar import render_sidebar
+from services.auth_service import auth_service
 
+auth_service.sync_auth_header()
 render_sidebar()    
 
 if "main_search_query" not in st.session_state:

@@ -1,5 +1,3 @@
-# frontend/services/orders_service.py
-
 from __future__ import annotations
 
 import time
@@ -38,21 +36,13 @@ class OrdersService:
     # -------------------------
 
     def _get_store(self) -> Dict[str, Dict[int, dict]]:
-        """
-        Structure:
-        {
-          "username": {
-              1: {order_dict},
-              2: {order_dict},
-          }
-        }
-        """
         if ORDERS_KEY not in st.session_state:
             st.session_state[ORDERS_KEY] = {}
         return st.session_state[ORDERS_KEY]
 
     def _current_user(self) -> Optional[str]:
-        return auth_service.get_current_user()
+        user = auth_service.get_current_user() or {}
+        return user.get("username")
 
     def _get_user_bucket(self, username: str) -> Dict[int, dict]:
         store = self._get_store()
