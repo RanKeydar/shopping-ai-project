@@ -7,7 +7,7 @@ import streamlit as st
 from services.auth_service import auth_service
 
 
-def render_auth_box() -> None:
+def render_auth_box(key_prefix: str = "auth_box") -> None:
     st.subheader("חשבון משתמש")
 
     if auth_service.is_authenticated():
@@ -22,7 +22,7 @@ def render_auth_box() -> None:
 
         st.success(f"שלום {display_name}")
 
-        if st.button("התנתק", use_container_width=True):
+        if st.button("התנתק", use_container_width=True, key=f"{key_prefix}_logout"):
             auth_service.logout()
             st.rerun()
 
@@ -31,11 +31,15 @@ def render_auth_box() -> None:
     login_tab, register_tab = st.tabs(["התחברות", "הרשמה"])
 
     with login_tab:
-        with st.form("login_form", clear_on_submit=False):
+        with st.form(f"{key_prefix}_login_form", clear_on_submit=False):
             st.markdown("### התחברות")
 
-            username = st.text_input("שם משתמש")
-            password = st.text_input("סיסמה", type="password")
+            username = st.text_input("שם משתמש", key=f"{key_prefix}_login_username")
+            password = st.text_input(
+                "סיסמה",
+                type="password",
+                key=f"{key_prefix}_login_password",
+            )
 
             submitted = st.form_submit_button(
                 "התחבר",
@@ -58,20 +62,20 @@ def render_auth_box() -> None:
                         st.error(message)
 
     with register_tab:
-        with st.form("register_form", clear_on_submit=False):
+        with st.form(f"{key_prefix}_register_form", clear_on_submit=False):
             st.markdown("### הרשמה")
 
-            first_name = st.text_input("שם פרטי", key="register_first_name")
-            last_name = st.text_input("שם משפחה", key="register_last_name")
-            email = st.text_input("אימייל", key="register_email")
-            phone = st.text_input("טלפון", key="register_phone")
-            country = st.text_input("מדינה", key="register_country")
-            city = st.text_input("עיר", key="register_city")
-            username = st.text_input("שם משתמש", key="register_username")
+            first_name = st.text_input("שם פרטי", key=f"{key_prefix}_register_first_name")
+            last_name = st.text_input("שם משפחה", key=f"{key_prefix}_register_last_name")
+            email = st.text_input("אימייל", key=f"{key_prefix}_register_email")
+            phone = st.text_input("טלפון", key=f"{key_prefix}_register_phone")
+            country = st.text_input("מדינה", key=f"{key_prefix}_register_country")
+            city = st.text_input("עיר", key=f"{key_prefix}_register_city")
+            username = st.text_input("שם משתמש", key=f"{key_prefix}_register_username")
             password = st.text_input(
                 "סיסמה",
                 type="password",
-                key="register_password",
+                key=f"{key_prefix}_register_password",
             )
 
             submitted = st.form_submit_button(
