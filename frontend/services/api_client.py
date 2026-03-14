@@ -1,10 +1,14 @@
 import os
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
+logger = logging.getLogger(__name__)
+
 
 # ---------- Exceptions ----------
 
@@ -40,9 +44,21 @@ class APIClient:
     - Easy to add auth headers later
     """
 
-    def __init__(self, base_url: str, timeout: int = 10):
+    def __init__(self, base_url: str, timeout: int = 60):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
+
+        retry = Retry(
+            total=3,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+
+        adapter = HTTPAdapter(max_retries=retry)
+
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
         self.timeout = timeout  # seconds
 
     def set_auth_token(self, token: Optional[str]) -> None:
@@ -53,25 +69,21 @@ class APIClient:
         if token:
             self.session.headers.update({"Authorization": f"Bearer {token}"})
         else:
-            # Remove header if exists
             self.session.headers.pop("Authorization", None)
 
     def _build_url(self, endpoint: str) -> str:
         return f"{self.base_url}/{endpoint.lstrip('/')}"
 
     def _parse_body(self, response: requests.Response) -> Any:
-        # 204 No Content
         if response.status_code == 204:
             return None
 
         content_type = response.headers.get("content-type", "")
         if "application/json" in content_type:
-            # If body is empty but marked as json, this might still throw; guard it.
             if not response.content:
                 return None
             return response.json()
 
-        # fallback: plain text (or html)
         return response.text
 
     def _handle_response(self, response: requests.Response) -> Any:
@@ -80,21 +92,24 @@ class APIClient:
         if response.ok:
             return body
 
-        # Build a helpful message
         message = "Request failed"
         if isinstance(body, dict):
-            # common patterns: {"detail": "..."} or {"message": "..."}
             message = (
                 str(body.get("detail"))
                 if body.get("detail") is not None
-                else str(body.get("message")) if body.get("message") is not None
+                else str(body.get("message"))
+                if body.get("message") is not None
                 else message
             )
         elif isinstance(body, str) and body.strip():
-            message = body.strip()[:300]  # keep it short
+            message = body.strip()[:300]
 
         raise APIClientError(
-            APIErrorDetail(status_code=response.status_code, message=message, data=body)
+            APIErrorDetail(
+                status_code=response.status_code,
+                message=message,
+                data=body,
+            )
         )
 
     def _request(
@@ -103,32 +118,53 @@ class APIClient:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
+        timeout: Optional[int | tuple[int, int]] = None,
     ) -> Any:
         try:
+            logger.debug(f"{method} {endpoint} params={params} json={json}")
             response = self.session.request(
                 method=method,
                 url=self._build_url(endpoint),
                 params=params,
                 json=json,
-                timeout=self.timeout,
+                timeout=timeout if timeout is not None else self.timeout,
             )
             return self._handle_response(response)
         except requests.RequestException as e:
-            # Includes: ConnectionError, Timeout, TooManyRedirects, etc.
+            logger.error(f"API connection error: {method} {endpoint} -> {e}")
             raise APIConnectionError(f"Connection error: {e}") from e
 
     # Public helpers
-    def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        return self._request("GET", endpoint, params=params)
+    def get(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        timeout: Optional[int | tuple[int, int]] = None,
+    ) -> Any:
+        return self._request("GET", endpoint, params=params, timeout=timeout)
 
-    def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Any:
-        return self._request("POST", endpoint, json=data)
+    def post(
+        self,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        timeout: Optional[int | tuple[int, int]] = None,
+    ) -> Any:
+        return self._request("POST", endpoint, json=data, timeout=timeout)
 
-    def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Any:
-        return self._request("PUT", endpoint, json=data)
+    def put(
+        self,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        timeout: Optional[int | tuple[int, int]] = None,
+    ) -> Any:
+        return self._request("PUT", endpoint, json=data, timeout=timeout)
 
-    def delete(self, endpoint: str) -> Any:
-        return self._request("DELETE", endpoint)
+    def delete(
+        self,
+        endpoint: str,
+        timeout: Optional[int | tuple[int, int]] = None,
+    ) -> Any:
+        return self._request("DELETE", endpoint, timeout=timeout)
 
 
 # ---------- Singleton instance ----------

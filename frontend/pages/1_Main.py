@@ -7,7 +7,7 @@ from components.sidebar import render_sidebar
 from services.auth_service import auth_service
 
 auth_service.sync_auth_header()
-render_sidebar()    
+render_sidebar()
 
 if "main_search_query" not in st.session_state:
     st.session_state.main_search_query = ""
@@ -102,8 +102,14 @@ try:
         st.caption(f"Search returned {len(items)} item(s)")
     else:
         st.caption(f"Showing all available items ({len(items)})")
-   
-    render_items_grid(items, columns=3, show_count=False)
+
+    render_items_grid(
+        items,
+        columns=3,
+        show_count=False,
+        enable_add_to_cart=True,
+        enable_favorites=True,
+    )
 
 except APIConnectionError:
     st.error("Could not connect to the server.")
