@@ -40,22 +40,14 @@ def chat_with_assistant(
 ):
     identifier = get_chat_identifier(request)
 
-    if not has_remaining_prompts(identifier):
-        raise HTTPException(
-            status_code=429,
-            detail="ניצלת את כל 5 הפרומפטים הזמינים כרגע. נסה שוב מאוחר יותר.",
-        )
-
     try:
         items = list_items_for_ai(db)
         store_context = build_store_context(items)
         answer = generate_ai_answer(payload.prompt, store_context)
 
-        remaining_prompts = consume_prompt(identifier)
-
         return {
             "answer": answer,
-            "remaining_prompts": remaining_prompts,
+            "remaining_prompts": 999,
         }
 
     except HTTPException:
