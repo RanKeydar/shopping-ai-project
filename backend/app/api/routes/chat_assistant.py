@@ -7,15 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas.chat import ChatRequest
-from app.services.chat_rate_limit_service import (
-    consume_prompt,
-    has_remaining_prompts,
-)
-from app.services.chat_service import (
-    build_store_context,
-    generate_ai_answer,
-    list_items_for_ai,
-)
+from app.services.chat_service import generate_ai_answer
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +33,12 @@ def chat_with_assistant(
     identifier = get_chat_identifier(request)
 
     try:
-        items = list_items_for_ai(db)
-        store_context = build_store_context(items)
-        answer = generate_ai_answer(payload.prompt, store_context)
+        prompt = payload.prompt.strip()
+
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt must not be empty.")
+
+        answer = generate_ai_answer(prompt, db)
 
         return {
             "answer": answer,
