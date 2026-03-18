@@ -54,11 +54,12 @@ def list_items_for_ai(db: Session) -> list[dict[str, Any]]:
                 "name": item.name,
                 "price_usd": float(item.price_usd),
                 "stock_qty": int(item.stock_qty),
+                "category": item.category,
+                "description": item.description,
             }
         )
 
     return result
-
 
 def build_store_context(items: list[dict[str, Any]]) -> str:
     total_products = len(items)
@@ -107,12 +108,23 @@ def build_subset_context(
         for item in matched_items:
             stock = item["stock_qty"]
             stock_text = f"in stock ({stock})" if stock > 0 else "out of stock"
-            lines.append(
-                f"- {item['name']} | price ${item['price_usd']:.2f} | {stock_text}"
-            )
+
+            parts = [
+                f"- {item['name']}",
+                f"price ${item['price_usd']:.2f}",
+                stock_text,
+            ]
+
+            if item.get("category"):
+                parts.append(f"category: {item['category']}")
+
+            short_description = shorten_text(item.get("description"))
+            if short_description:
+                parts.append(f"description: {short_description}")
+
+            lines.append(" | ".join(parts))
 
     return "\n".join(lines)
-
 
 def normalize_text(text: str) -> str:
     text = text.strip().lower()
@@ -133,6 +145,15 @@ def normalize_text(text: str) -> str:
 
     return text
 
+def shorten_text(text: str | None, max_length: int = 140) -> str | None:
+    if not text:
+        return None
+
+    text = text.strip()
+    if len(text) <= max_length:
+        return text
+
+    return text[: max_length - 3].rstrip() + "..."
 
 def extract_candidate_product_name(prompt: str) -> str:
     text = normalize_text(prompt)
@@ -245,8 +266,8 @@ def find_best_product_match(
             best_score = score
             best_item = item
   
-     if best_score >= min_score:
-        return best_item
+        if best_score >= min_score:
+            return best_item
 
     return None
 
@@ -278,7 +299,17 @@ def search_items_for_ai(
 
     for item in items:
         item_name = normalize_text(item["name"])
-        item_tokens = meaningful_tokens(item["name"])
+
+        searchable_text = " ".join(
+            part for part in [
+                item.get("name", ""),
+                item.get("category", ""),
+                item.get("description", ""),
+            ]
+            if part
+        )   
+
+        item_tokens = meaningful_tokens(searchable_text)
         item_numbers = _extract_numbers(item_name)
 
         overlap = len(prompt_tokens & item_tokens)
