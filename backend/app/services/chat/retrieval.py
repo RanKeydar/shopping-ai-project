@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 
+from openai import OpenAI
 from sqlalchemy import case, or_, select
 from sqlalchemy.orm import Session
 
@@ -116,6 +118,8 @@ _HE_STOPWORDS = {
     "פריטים",
     "המלצה",
     "מומלץ",
+    "לכם",
+    "לנו",
 }
 
 _STOPWORDS = _EN_STOPWORDS | _HE_STOPWORDS
@@ -192,8 +196,131 @@ def unique_keywords(prompt: str, max_keywords: int = 6) -> list[str]:
     return keywords[:max_keywords]
 
 
-def search_items_by_keywords(db: Session, prompt: str, limit: int = 10) -> list[Item]:
-    keywords = unique_keywords(prompt)
+def contains_hebrew(text: str) -> bool:
+    return bool(re.search(r"[א-ת]", text))
+
+
+def contains_hebrew_keywords(keywords: list[str]) -> bool:
+    return any(contains_hebrew(keyword) for keyword in keywords)
+
+
+def build_keyword_translation_prompt(keywords: list[str]) -> str:
+    keywords_json = json.dumps(keywords, ensure_ascii=False)
+
+    return f"""
+You are helping a shopping search engine.
+
+Task:
+Translate each keyword to concise English search keywords suitable for matching product
+names, categories, and descriptions in an English catalog.
+
+Rules:
+- Input is a list of user keywords that may be in Hebrew or mixed language.
+- Return a JSON array only.
+- Each output item must be short: usually 1 word, sometimes 2 words max.
+- Preserve product-search meaning, not full sentence meaning.
+- Do not explain.
+- Do not add categories unless directly implied by the keyword.
+- Keep the number of returned keywords small and relevant.
+- Deduplicate terms.
+
+Input keywords:
+{keywords_json}
+""".strip()
+
+
+def translate_keywords_with_gpt(
+    client: OpenAI,
+    keywords: list[str],
+    model: str,
+) -> list[str]:
+    if not keywords:
+        return []
+
+    completion = client.responses.create(
+        model=model,
+        input=build_keyword_translation_prompt(keywords),
+    )
+
+    raw = (completion.output_text or "").strip()
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    translated: list[str] = []
+    seen: set[str] = set()
+
+    for item in parsed:
+        if not isinstance(item, str):
+            continue
+
+        token = item.strip().lower()
+        if not token:
+            continue
+
+        if token in seen:
+            continue
+
+        seen.add(token)
+        translated.append(token)
+
+    return translated[:8]
+
+
+def build_search_keywords(
+    prompt: str,
+    client: OpenAI | None = None,
+    model: str | None = None,
+) -> list[str]:
+    base_keywords = unique_keywords(prompt)
+
+    if not base_keywords:
+        return []
+
+    search_keywords: list[str] = []
+    seen: set[str] = set()
+
+    def add_keyword(keyword: str) -> None:
+        keyword = keyword.strip().lower()
+        if not keyword:
+            return
+        if keyword in seen:
+            return
+        seen.add(keyword)
+        search_keywords.append(keyword)
+
+    for keyword in base_keywords:
+        add_keyword(keyword)
+
+    if contains_hebrew_keywords(base_keywords) and client is not None and model:
+        translated_keywords = translate_keywords_with_gpt(
+            client=client,
+            keywords=base_keywords,
+            model=model,
+        )
+        for keyword in translated_keywords:
+            add_keyword(keyword)
+
+    return search_keywords[:10]
+
+
+def search_items_by_keywords(
+    db: Session,
+    prompt: str,
+    client: OpenAI | None = None,
+    model: str | None = None,
+    limit: int = 10,
+) -> list[Item]:
+    keywords = build_search_keywords(
+        prompt=prompt,
+        client=client,
+        model=model,
+    )
 
     if not keywords:
         return []

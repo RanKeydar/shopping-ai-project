@@ -13,6 +13,8 @@ ChatIntent = Literal[
     "unknown",
 ]
 
+PricePreference = Literal["cheap", "expensive", "none"]
+
 
 _PRICE_LOW_WORDS = {
     "cheap",
@@ -74,7 +76,6 @@ _RECOMMENDATION_WORDS = {
     "צריך",
     "צריכה",
     "רוצה",
-    "מחפש משהו",
     "תמצא לי",
     "תראי לי",
     "תראה לי",
@@ -127,6 +128,18 @@ def looks_like_price_preference(text: str) -> bool:
 
 def looks_like_recommendation(text: str) -> bool:
     return contains_any(text, _RECOMMENDATION_WORDS)
+
+
+def detect_price_preference(prompt: str) -> PricePreference:
+    text = normalize_text(prompt)
+
+    if contains_any(text, _PRICE_LOW_WORDS):
+        return "cheap"
+
+    if contains_any(text, _PRICE_HIGH_WORDS):
+        return "expensive"
+
+    return "none"
 
 
 def detect_rule_based_intent(prompt: str) -> ChatIntent | None:
