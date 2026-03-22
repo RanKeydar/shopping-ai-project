@@ -1,22 +1,16 @@
-from app.services.chat.prompts import (
-    build_system_prompt,
-    build_user_message,
-    detect_user_language,
-)
+from __future__ import annotations
+
+from openai import OpenAI
 
 
-def generate_gpt_answer(user_prompt: str, subset_context: str, client) -> str:
-    user_language = detect_user_language(user_prompt)
-    system_prompt = build_system_prompt(user_language)
-    user_message = build_user_message(user_prompt, subset_context)
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        temperature=0.2,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
+def generate_chat_response(
+    client: OpenAI,
+    prompt: str,
+    model: str,
+) -> str:
+    completion = client.responses.create(
+        model=model,
+        input=prompt,
     )
 
-    return response.choices[0].message.content.strip()
+    return (completion.output_text or "").strip()
