@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import streamlit as st
 
+from services.orders_service import orders_service
 from services.api_client import APIClientError, APIConnectionError
 from services.items_service import list_items
-from services.orders_service import orders_service
 
+
+# -----------------------
+# formatting / parsing
+# -----------------------
 
 def format_currency(value: float | int | None) -> str:
     try:
@@ -30,6 +34,10 @@ def extract_error_message(exc: Exception) -> str:
 
     return text
 
+
+# -----------------------
+# order helpers
+# -----------------------
 
 def get_order_items(order: dict) -> list[dict]:
     items = order.get("items")
@@ -71,6 +79,10 @@ def display_status(order: dict) -> str:
         return "סגורה"
     return status or "-"
 
+
+# -----------------------
+# data loading
+# -----------------------
 
 def load_orders_data() -> tuple[dict | None, list[dict]]:
     cart = None
@@ -130,10 +142,8 @@ def get_temp_order(orders_list: list[dict]) -> dict | None:
 def load_searchable_catalog_items(limit: int = 500) -> list[dict]:
     try:
         items = list_items(limit=limit)
-
         if not isinstance(items, list):
             return []
-
         return items
     except APIConnectionError:
         st.error("לא ניתן להתחבר לשרת כרגע.")
