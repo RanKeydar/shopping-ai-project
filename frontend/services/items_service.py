@@ -1,5 +1,6 @@
 import os
 from typing import Any, Dict, List, Optional
+import time
 
 from services.api_client import api
 
@@ -40,7 +41,11 @@ def list_items(
         params["stock_op"] = stock_op
         params["stock"] = int(stock)
 
+    import time
+
+    start = time.perf_counter()
     data = api.get(ITEMS_PATH, params=params or None)
+    print(f"GET {ITEMS_PATH} took {time.perf_counter() - start:.2f}s")
 
     if isinstance(data, dict) and "items" in data:
         return data["items"]

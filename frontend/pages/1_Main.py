@@ -31,9 +31,17 @@ if "main_stock_op" not in st.session_state:
 if "main_stock" not in st.session_state:
     st.session_state.main_stock = 0
 
-if "main_flash_message" in st.session_state:
-    st.success(st.session_state.pop("main_flash_message"))
-    st.page_link("pages/2_Orders.py", label="לעבור לעגלה", icon="🛒")
+flash_message = st.session_state.pop("main_flash_message", None)
+
+if flash_message:
+    with st.container(border=True):
+        st.success(flash_message)
+
+        action_col1, action_col2 = st.columns([1, 4])
+        with action_col1:
+            st.page_link("pages/2_Orders.py", label="לעגלה", icon="🛒")
+        with action_col2:
+            st.caption("הפריט נוסף בהצלחה. אפשר להמשיך לקנות או לעבור לעגלת ההזמנה.")
 
 def extract_error_message(exc: Exception) -> str:
     text = str(exc)
@@ -76,7 +84,7 @@ def handle_add_to_order(item: dict, quantity: int) -> None:
         st.error(extract_error_message(e))
     except Exception as e:
         st.error(f"שגיאה לא צפויה: {e}")
-        
+
 def clear_main_filters() -> None:
     st.session_state.main_search_query = ""
     st.session_state.main_use_price = False
@@ -127,9 +135,6 @@ with col2:
     )
 
 action_cols = st.columns([1, 1, 4])
-
-with action_cols[0]:
-    st.button("Search", use_container_width=True)
 
 with action_cols[1]:
     st.button("Clear", on_click=clear_main_filters, use_container_width=True)
