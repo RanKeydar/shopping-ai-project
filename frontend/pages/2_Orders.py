@@ -6,6 +6,7 @@ from services.auth_service import auth_service
 from services.orders_service import orders_service
 from services.api_client import APIClientError, APIConnectionError
 from services.items_service import list_items
+from services.search_service import filter_and_sort_items_by_query
 
 from features.orders.state import (
     clear_order_item_search_reset_flag,
@@ -35,6 +36,7 @@ st.caption(f"שלום {auth_service.get_display_name()}")
 flash_message = pop_orders_flash_message()
 if flash_message:
     st.success(flash_message)
+
 
 def format_currency(value: float | int | None) -> str:
     try:
@@ -90,6 +92,7 @@ def normalize_status(order: dict) -> str:
         return ""
 
     return str(status).strip().upper()
+
 
 def display_status(order: dict) -> str:
     status = normalize_status(order)
@@ -155,39 +158,24 @@ def get_temp_order(orders_list: list[dict]) -> dict | None:
             return order
     return None
 
-def search_catalog_items(query: str) -> list[dict]:
-    query = (query or "").strip()
 
-    if not query:
-        return []
-
-    hebrew_to_english = {
-        "חלב": "milk",
-        "לחם": "bread",
-        "ביצים": "eggs",
-        "עגבניות": "tomatoes",
-        "עגבניה": "tomatoes",
-        "תפוח": "apple",
-        "תפוחים": "apple",
-        "בננה": "banana",
-        "בננות": "banana",
-        "שוקולד": "chocolate",
-        "שמפו": "shampoo",
-        "מרכך": "conditioner",
-        "סבון": "soap",
-    }
-
-    normalized_query = hebrew_to_english.get(query.lower(), query)
-
+def load_searchable_catalog_items(limit: int = 500) -> list[dict]:
     try:
-        items = list_items(limit=50, q=normalized_query)
+        items = list_items(limit=limit)
 
         if not isinstance(items, list):
             return []
 
         return items
-    except Exception:
-        return []
+    except APIConnectionError:
+        st.error("לא ניתן להתחבר לשרת כרגע.")
+    except APIClientError as e:
+        st.error(f"שגיאה בטעינת קטלוג הפריטים: {extract_error_message(e)}")
+    except Exception as e:
+        st.error(f"שגיאה בטעינת קטלוג הפריטים: {e}")
+
+    return []
+
 
 def render_order_selector(orders_list: list[dict]) -> None:
     st.subheader("רשימת הזמנות")
@@ -226,8 +214,8 @@ def render_order_selector(orders_list: list[dict]) -> None:
                     mark_user_selected_order_once()
                     st.rerun()
 
-def render_create_new_order_panel(temp_order: dict | None) -> None:
 
+def render_create_new_order_panel(temp_order: dict | None) -> None:
     if temp_order is not None:
         return
 
@@ -235,6 +223,7 @@ def render_create_new_order_panel(temp_order: dict | None) -> None:
     st.caption("אין כרגע הזמנה פתוחה. כדי לפתוח הזמנה חדשה, חפש פריט והוסף אותו.")
 
     render_item_search_and_add()
+
 
 def render_closed_order_details(order: dict) -> None:
     st.subheader(f"פרטי הזמנה #{order.get('id', '-')}")
@@ -291,7 +280,8 @@ def render_item_search_and_add() -> None:
         st.info("הקלד שם מוצר כדי לחפש ולהוסיף אותו להזמנה.")
         return
 
-    items = search_catalog_items(search_query)
+    items = load_searchable_catalog_items(limit=100)
+    items = filter_and_sort_items_by_query(items, search_query)
 
     if not items:
         st.info("לא נמצאו פריטים מתאימים לחיפוש.")
@@ -349,6 +339,7 @@ def render_item_search_and_add() -> None:
                             st.error(extract_error_message(e))
                         except Exception as e:
                             st.error(f"שגיאה לא צפויה: {e}")
+
 
 def render_temp_order_process(order: dict) -> None:
     st.subheader(f"תהליך הזמנה | הזמנה #{order.get('id', '-')}")
@@ -444,7 +435,7 @@ def render_temp_order_process(order: dict) -> None:
     st.divider()
 
     st.markdown("### פרטי משלוח ורכישה")
-    
+
     sync_pending_shipping_address()
 
     shipping_address = st.text_input(

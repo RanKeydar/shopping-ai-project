@@ -6,6 +6,7 @@ from services.api_client import APIClientError, APIConnectionError
 from components.sidebar import render_sidebar
 from services.auth_service import auth_service
 from services.orders_service import orders_service
+from services.search_service import filter_and_sort_items_by_query
 
 auth_service.sync_auth_header()
 render_sidebar()
@@ -42,6 +43,7 @@ if flash_message:
             st.page_link("pages/2_Orders.py", label="לעגלה", icon="🛒")
         with action_col2:
             st.caption("הפריט נוסף בהצלחה. אפשר להמשיך לקנות או לעבור לעגלת ההזמנה.")
+
 
 def extract_error_message(exc: Exception) -> str:
     text = str(exc)
@@ -85,6 +87,7 @@ def handle_add_to_order(item: dict, quantity: int) -> None:
     except Exception as e:
         st.error(f"שגיאה לא צפויה: {e}")
 
+
 def clear_main_filters() -> None:
     st.session_state.main_search_query = ""
     st.session_state.main_use_price = False
@@ -96,39 +99,39 @@ def clear_main_filters() -> None:
 
 
 st.title("Shopping AI")
-st.subheader("Available items")
+st.subheader("פריטים זמינים")
 
 search_query = st.text_input(
-    "Search by item name",
-    placeholder="Examples: milk | sun table | sun, table",
+    "חיפוש לפי שם פריט",
+    placeholder="לדוגמה: חלב | שולחן | שמפו",
     key="main_search_query",
 )
 
 col1, col2 = st.columns(2)
 
 with col1:
-    use_price = st.checkbox("Filter by price", key="main_use_price")
+    use_price = st.checkbox("סינון לפי מחיר", key="main_use_price")
     price_op = st.selectbox(
-        "Price operator",
+        "אופרטור מחיר",
         ["<", "<=", "=", ">=", ">"],
         key="main_price_op",
     )
     price = st.number_input(
-        "Price in USD",
+        "מחיר בדולרים",
         min_value=0.0,
         step=1.0,
         key="main_price",
     )
 
 with col2:
-    use_stock = st.checkbox("Filter by stock", key="main_use_stock")
+    use_stock = st.checkbox("סינון לפי מלאי", key="main_use_stock")
     stock_op = st.selectbox(
-        "Stock operator",
+        "אופרטור מלאי",
         ["<", "<=", "=", ">=", ">"],
         key="main_stock_op",
     )
     stock = st.number_input(
-        "Amount in stock",
+        "כמות במלאי",
         min_value=0,
         step=1,
         key="main_stock",
@@ -137,22 +140,25 @@ with col2:
 action_cols = st.columns([1, 1, 4])
 
 with action_cols[1]:
-    st.button("Clear", on_click=clear_main_filters, use_container_width=True)
+    st.button("נקה", on_click=clear_main_filters, use_container_width=True)
 
 try:
-    with st.spinner("Loading items..."):
+    with st.spinner("טוען פריטים..."):
+        normalized_query = search_query.strip()
+
         items = list_items(
-            q=search_query,
             price_op=price_op if use_price else None,
             price=price if use_price else None,
             stock_op=stock_op if use_stock else None,
             stock=stock if use_stock else None,
         )
 
-    if search_query.strip() or use_price or use_stock:
-        st.caption(f"Search returned {len(items)} item(s)")
+        items = filter_and_sort_items_by_query(items, normalized_query)
+
+    if normalized_query or use_price or use_stock:
+        st.caption(f"נמצאו {len(items)} פריטים")
     else:
-        st.caption(f"Showing all available items ({len(items)})")
+        st.caption(f"מוצגים כל הפריטים הזמינים ({len(items)})")
 
     render_items_grid(
         items,
@@ -164,6 +170,6 @@ try:
     )
 
 except APIConnectionError:
-    st.error("Could not connect to the server.")
+    st.error("לא ניתן להתחבר לשרת.")
 except APIClientError as e:
-    st.error(f"Server error: {e}")
+    st.error(f"שגיאת שרת: {e}")
