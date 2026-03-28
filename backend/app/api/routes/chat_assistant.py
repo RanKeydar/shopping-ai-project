@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas.chat import ChatRequest
+from app.services.chat_rate_limit_service import (
+    consume_prompt,
+    get_remaining_prompts,
+)
 from app.services.chat_service import generate_ai_answer
 
 logger = logging.getLogger(__name__)
@@ -24,8 +28,18 @@ def get_chat_identifier(request: Request) -> str:
     return f"guest:{client_host}"
 
 
+@router.get("/remaining")
+async def get_chat_remaining(request: Request):
+    identifier = get_chat_identifier(request)
+    remaining = await get_remaining_prompts(identifier)
+
+    return {
+        "remaining_prompts": remaining,
+    }
+
+
 @router.post("")
-def chat_with_assistant(
+async def chat_with_assistant(
     payload: ChatRequest,
     request: Request,
     db: Session = Depends(get_db),
@@ -38,11 +52,19 @@ def chat_with_assistant(
         if not prompt:
             raise HTTPException(status_code=400, detail="Prompt must not be empty.")
 
+        remaining_before = await get_remaining_prompts(identifier)
+        if remaining_before <= 0:
+            raise HTTPException(
+                status_code=429,
+                detail="You have used all 5 prompts available in this session.",
+            )
+
         answer = generate_ai_answer(prompt, db)
+        remaining_after = await consume_prompt(identifier)
 
         return {
             "answer": answer,
-            "remaining_prompts": 999,
+            "remaining_prompts": remaining_after,
         }
 
     except HTTPException:

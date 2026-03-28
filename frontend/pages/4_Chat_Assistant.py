@@ -20,21 +20,40 @@ else:
 
 CHAT_HISTORY_KEY = "chat_history"
 CHAT_REMAINING_KEY = "chat_remaining_prompts"
+CHAT_REMAINING_LOADED_KEY = "chat_remaining_loaded"
 
 if CHAT_HISTORY_KEY not in st.session_state:
     st.session_state[CHAT_HISTORY_KEY] = []
 
 if CHAT_REMAINING_KEY not in st.session_state:
-    st.session_state[CHAT_REMAINING_KEY] = 5
+    st.session_state[CHAT_REMAINING_KEY] = None
+
+if CHAT_REMAINING_LOADED_KEY not in st.session_state:
+    st.session_state[CHAT_REMAINING_LOADED_KEY] = False
+
+if not st.session_state[CHAT_REMAINING_LOADED_KEY]:
+    try:
+        st.session_state[CHAT_REMAINING_KEY] = chat_service.get_remaining_prompts()
+        st.session_state[CHAT_REMAINING_LOADED_KEY] = True
+        st.rerun()
+    except (APIConnectionError, APIClientError):
+        pass
+    except Exception:
+        pass
 
 st.subheader("עוזר קניות AI")
-st.caption(f"נותרו {st.session_state[CHAT_REMAINING_KEY]} פרומפטים בסשן הזה")
+
+remaining = st.session_state[CHAT_REMAINING_KEY]
+if remaining is None:
+    st.caption("לא ניתן כרגע לטעון את מספר הפרומפטים שנותרו.")
+else:
+    st.caption(f"נותרו {remaining} פרומפטים בסשן הזה")
 
 for message in st.session_state[CHAT_HISTORY_KEY]:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-if st.session_state[CHAT_REMAINING_KEY] <= 0:
+if st.session_state[CHAT_REMAINING_KEY] == 0:
     st.warning("ניצלת את כל 5 הפרומפטים הזמינים כרגע.")
     st.stop()
 
@@ -62,7 +81,9 @@ if prompt:
                 remaining_prompts,
             )
 
-        st.session_state[CHAT_REMAINING_KEY] = max(0, int(remaining_prompts))
+        if remaining_prompts is not None:
+            st.session_state[CHAT_REMAINING_KEY] = max(0, int(remaining_prompts))
+            st.session_state[CHAT_REMAINING_LOADED_KEY] = True
 
         st.session_state[CHAT_HISTORY_KEY].append(
             {"role": "assistant", "content": answer}
@@ -78,6 +99,7 @@ if prompt:
     except APIClientError as e:
         if e.detail.status_code == 429:
             st.session_state[CHAT_REMAINING_KEY] = 0
+            st.session_state[CHAT_REMAINING_LOADED_KEY] = True
         st.error(f"העוזר אינו זמין כרגע: {e.detail.message}")
     except Exception as e:
         st.error(f"שגיאה לא צפויה: {e}")

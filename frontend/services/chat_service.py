@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
-
-from services.api_client import api
-
+from services.api_client import api as api_client
 
 class ChatService:
-    def ask(self, prompt: str) -> dict[str, Any] | None:
-        return api.post(
+    def ask(self, prompt: str) -> dict:
+        return api_client.post(
             "/chat-assistant",
-            data={"prompt": prompt},
-            timeout=(5, 45),  
+            json={"prompt": prompt},
         )
+
+    def get_remaining_prompts(self) -> int:
+        response = api_client.get("/chat-assistant/remaining")
+        return int(response["remaining_prompts"])
+
 
 chat_service = ChatService()

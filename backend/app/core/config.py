@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
+    CHAT_SESSION_LIMIT: int = 5
+    CHAT_SESSION_TTL_SECONDS: int = 43200  # 12 hours
+
     @property
     def database_url(self) -> str:
         return (
