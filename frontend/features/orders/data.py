@@ -107,30 +107,41 @@ def load_orders_data() -> tuple[dict | None, list[dict]]:
 
 
 def build_orders_list(cart: dict | None, orders: list[dict]) -> list[dict]:
-    result: list[dict] = []
+    temp_order: dict | None = None
+    other_orders: list[dict] = []
 
     if cart and is_non_empty_temp_order(cart):
-        result.append(cart)
+        temp_order = cart
 
     for order in orders:
+        order_id = order.get("id")
+
         if normalize_status(order) == "TEMP":
             if not has_order_items(order):
                 continue
 
-            if cart and order.get("id") == cart.get("id"):
+            if temp_order and order_id == temp_order.get("id"):
                 continue
 
-        result.append(order)
+            if temp_order is None:
+                temp_order = order
 
-    result.sort(
-        key=lambda order: (
-            0 if normalize_status(order) == "TEMP" else 1,
-            str(order.get("created_at", "")),
-        )
+            continue
+
+        other_orders.append(order)
+
+    other_orders.sort(
+        key=lambda order: str(order.get("created_at", "")),
+        reverse=True,
     )
 
-    return result
+    result: list[dict] = []
 
+    if temp_order is not None:
+        result.append(temp_order)
+
+    result.extend(other_orders)
+    return result
 
 def get_temp_order(orders_list: list[dict]) -> dict | None:
     for order in orders_list:
