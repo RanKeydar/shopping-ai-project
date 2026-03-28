@@ -1,36 +1,40 @@
-from __future__ import annotations
-
-import pandas as pd
 import streamlit as st
+import pandas as pd
 
 from components.protected_page import require_auth
-from services.api_client import APIClientError, APIConnectionError
 from services.auth_service import auth_service
-from services.items_service import list_items
 from services.orders_service import orders_service
-import time
+from services.api_client import APIClientError, APIConnectionError
+from services.items_service import list_items
+
+from features.orders.state import (
+    clear_order_item_search_reset_flag,
+    ensure_default_selected_order,
+    ensure_orders_page_state,
+    mark_order_item_search_for_reset,
+    pop_orders_flash_message,
+    set_pending_shipping_address,
+    set_selected_order_id,
+    should_reset_order_item_search,
+    sync_pending_shipping_address,
+    mark_user_selected_order_once,
+)
 
 user = require_auth("הזמנות")
-st.caption(f"שלום {auth_service.get_display_name()}")
 
-st.write("ORDERS PAGE v3")  # ← כאן
-st.write("ORDERS PAGE:", time.time())
+ensure_orders_page_state()
 
-if "selected_order_id" not in st.session_state:
-    st.session_state.selected_order_id = None
-
-if "shipping_address" not in st.session_state:
+if not st.session_state.get("shipping_address"):
     city = (user.get("city") or "").strip()
     country = (user.get("country") or "").strip()
     default_address = ", ".join(part for part in [city, country] if part)
-    st.session_state.shipping_address = default_address
+    st.session_state["shipping_address"] = default_address
 
-if "pending_shipping_address" not in st.session_state:
-    st.session_state.pending_shipping_address = None
+st.caption(f"שלום {auth_service.get_display_name()}")
 
-if "order_item_search_query" not in st.session_state:
-    st.session_state.order_item_search_query = ""
-
+flash_message = pop_orders_flash_message()
+if flash_message:
+    st.success(flash_message)
 
 def format_currency(value: float | int | None) -> str:
     try:
@@ -151,26 +155,6 @@ def get_temp_order(orders_list: list[dict]) -> dict | None:
             return order
     return None
 
-def ensure_default_selected_order(orders_list: list[dict], temp_order: dict | None) -> None:
-    current_selected_id = st.session_state.get("selected_order_id")
-
-    if current_selected_id is not None:
-        exists = any(order.get("id") == current_selected_id for order in orders_list)
-        if exists:
-            return
-
-    if temp_order is not None:
-        st.session_state.selected_order_id = temp_order.get("id")
-        shipping_address = (temp_order.get("shipping_address") or "").strip()
-        if shipping_address:
-            st.session_state.shipping_address = shipping_address
-        return
-
-    if orders_list:
-        st.session_state.selected_order_id = orders_list[0].get("id")
-    else:
-        st.session_state.selected_order_id = None
-
 def search_catalog_items(query: str) -> list[dict]:
     query = (query or "").strip()
 
@@ -237,10 +221,10 @@ def render_order_selector(orders_list: list[dict]) -> None:
 
             with col2:
                 if st.button("פתח", key=f"open_order_{order_id}", use_container_width=True):
-                    st.session_state.selected_order_id = order_id
-                    st.session_state["pending_shipping_address"] = (order.get("shipping_address") or "").strip()
+                    set_selected_order_id(order_id)
+                    set_pending_shipping_address(order.get("shipping_address"))
+                    mark_user_selected_order_once()
                     st.rerun()
-
 
 def render_create_new_order_panel(temp_order: dict | None) -> None:
 
@@ -293,9 +277,9 @@ def render_closed_order_details(order: dict) -> None:
 def render_item_search_and_add() -> None:
     st.markdown("### הוספת פריט להזמנה")
 
-    if st.session_state.get("reset_order_item_search"):
+    if should_reset_order_item_search():
         st.session_state["order_item_search_query"] = ""
-        st.session_state["reset_order_item_search"] = False
+        clear_order_item_search_reset_flag()
 
     search_query = st.text_input(
         "חפש פריט לפי שם או תיאור",
@@ -461,11 +445,7 @@ def render_temp_order_process(order: dict) -> None:
 
     st.markdown("### פרטי משלוח ורכישה")
     
-    pending_shipping_address = st.session_state.get("pending_shipping_address")
-    if pending_shipping_address is not None:
-        st.session_state.shipping_address = pending_shipping_address
-        st.session_state.pending_shipping_address = None
-
+    sync_pending_shipping_address()
 
     shipping_address = st.text_input(
         "כתובת משלוח",
@@ -492,8 +472,8 @@ def render_temp_order_process(order: dict) -> None:
             else:
                 st.success("ההזמנה נסגרה בהצלחה.")
 
-            st.session_state.selected_order_id = None
-            st.session_state["reset_order_item_search"] = True
+            set_selected_order_id(None)
+            mark_order_item_search_for_reset()
             st.rerun()
 
         except APIConnectionError:
