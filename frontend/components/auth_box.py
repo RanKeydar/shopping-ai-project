@@ -1,5 +1,3 @@
-# frontend/components/auth_box.py
-
 from __future__ import annotations
 
 import streamlit as st
@@ -25,6 +23,28 @@ def render_auth_box(key_prefix: str = "auth_box") -> None:
         if st.button("התנתק", use_container_width=True, key=f"{key_prefix}_logout"):
             auth_service.logout()
             st.rerun()
+
+        st.divider()
+        st.warning("פעולה זו תמחק את החשבון ואת כל הנתונים המשויכים אליו.")
+
+        confirm_delete = st.checkbox(
+            "אני מאשר/ת מחיקה של החשבון",
+            key=f"{key_prefix}_confirm_delete_account",
+        )
+
+        if st.button(
+            "מחק חשבון",
+            use_container_width=True,
+            key=f"{key_prefix}_delete_account",
+            disabled=not confirm_delete,
+        ):
+            success, message = auth_service.delete_current_user()
+
+            if success:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
 
         return
 

@@ -4,6 +4,10 @@ from typing import Any, Callable
 
 import streamlit as st
 
+from services.api_client import APIClientError, APIConnectionError
+from services.auth_service import auth_service
+from services.favorites_service import favorites_service
+
 
 def render_items_grid(
     items: list[dict[str, Any]],
@@ -21,6 +25,13 @@ def render_items_grid(
         return
 
     columns_per_row = max(1, columns)
+
+    favorite_ids: set[int] = set()
+    if enable_favorites and auth_service.is_authenticated():
+        try:
+            favorite_ids = favorites_service.get_favorites_ids()
+        except Exception:
+            favorite_ids = set()
 
     for row_start in range(0, len(items), columns_per_row):
         row_items = items[row_start : row_start + columns_per_row]
@@ -50,7 +61,26 @@ def render_items_grid(
                     st.write(f"מחיר: ${price:,.2f}")
 
                     if enable_favorites:
-                        st.caption("♡ מועדפים")
+                        is_favorite = item_id in favorite_ids
+                        favorite_label = "הסר ממועדפים" if is_favorite else "הוסף למועדפים"
+
+                        if st.button(
+                            favorite_label,
+                            key=f"favorite_toggle_{item_id}",
+                            use_container_width=True,
+                        ):
+                            if not auth_service.is_authenticated():
+                                st.warning("צריך להתחבר כדי לנהל מועדפים.")
+                            else:
+                                try:
+                                    favorites_service.toggle(item_id)
+                                    st.rerun()
+                                except APIConnectionError:
+                                    st.error("לא ניתן להתחבר לשרת כרגע.")
+                                except APIClientError as e:
+                                    st.error(f"שגיאה בעדכון המועדפים: {e}")
+                                except Exception as e:
+                                    st.error(f"שגיאה לא צפויה בעדכון המועדפים: {e}")
 
                     if enable_add_to_cart:
                         if stock_qty <= 0:

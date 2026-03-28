@@ -1,5 +1,7 @@
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.models import Favorite, Order, OrderItem
 from app.models.user import User
 
 
@@ -46,5 +48,19 @@ def create_user(
 
 
 def delete_user(db: Session, user: User) -> None:
+    order_ids_subquery = select(Order.id).where(Order.user_id == user.id)
+
+    db.execute(
+        delete(Favorite).where(Favorite.user_id == user.id)
+    )
+
+    db.execute(
+        delete(OrderItem).where(OrderItem.order_id.in_(order_ids_subquery))
+    )
+
+    db.execute(
+        delete(Order).where(Order.user_id == user.id)
+    )
+
     db.delete(user)
     db.commit()

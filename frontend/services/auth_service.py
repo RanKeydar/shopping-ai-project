@@ -6,7 +6,6 @@ import streamlit as st
 
 from services.api_client import APIClientError, APIConnectionError, api
 
-
 TOKEN_KEY = "auth_token"
 USER_KEY = "auth_user"
 
@@ -150,5 +149,13 @@ class AuthService:
         except APIConnectionError:
             return False, "שגיאת חיבור לשרת"
 
+    def delete_current_user(self) -> tuple[bool, str]:
+        try:
+            self.sync_auth_header()
+            api.delete("/auth/me")
+            self.logout()
+            return True, "החשבון נמחק בהצלחה."
+        except Exception as e:
+            return False, f"מחיקת החשבון נכשלה: {e}"
 
 auth_service = AuthService()
