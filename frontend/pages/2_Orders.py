@@ -516,11 +516,17 @@ temp_order = get_temp_order(orders_list)
 
 ensure_default_selected_order(orders_list, temp_order)
 
-if orders_list:
+if temp_order is not None:
     render_selected_order(orders_list)
     st.divider()
     render_order_selector(orders_list)
     st.divider()
     render_create_new_order_panel(temp_order)
+
+elif orders_list:
+    render_create_new_order_panel(temp_order)
+    st.divider()
+    render_order_selector(orders_list)
+
 else:
     render_create_new_order_panel(temp_order)
