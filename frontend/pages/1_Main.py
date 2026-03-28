@@ -5,6 +5,7 @@ from services.items_service import list_items
 from services.api_client import APIClientError, APIConnectionError
 from components.sidebar import render_sidebar
 from services.auth_service import auth_service
+from services.orders_service import orders_service
 
 auth_service.sync_auth_header()
 render_sidebar()
@@ -30,7 +31,52 @@ if "main_stock_op" not in st.session_state:
 if "main_stock" not in st.session_state:
     st.session_state.main_stock = 0
 
+if "main_flash_message" in st.session_state:
+    st.success(st.session_state.pop("main_flash_message"))
+    st.page_link("pages/2_Orders.py", label="לעבור לעגלה", icon="🛒")
 
+def extract_error_message(exc: Exception) -> str:
+    text = str(exc)
+
+    if "Requested quantity exceeds available stock" in text:
+        return "אין מספיק מלאי זמין עבור הפריט הזה."
+    if "Cart not found" in text:
+        return "אין כרגע הזמנה פתוחה."
+    if "shipping_address" in text:
+        return "יש להזין כתובת משלוח."
+    if "out of stock" in text.lower():
+        return "הפריט לא זמין במלאי."
+    if "not found" in text.lower():
+        return "הפריט או ההזמנה לא נמצאו."
+
+    return text
+
+
+def handle_add_to_order(item: dict, quantity: int) -> None:
+    if not auth_service.is_authenticated():
+        st.warning("צריך להתחבר כדי להוסיף פריטים לעגלה.")
+        return
+
+    item_id = int(item.get("id"))
+    name = item.get("name", f"פריט {item_id}")
+
+    try:
+        orders_service.add_to_order(item_id=item_id, quantity=quantity)
+
+        if quantity == 1:
+            st.session_state["main_flash_message"] = f"'{name}' נוסף לעגלה."
+        else:
+            st.session_state["main_flash_message"] = f"נוספו {quantity} יחידות של '{name}' לעגלה."
+
+        st.rerun()
+
+    except APIConnectionError:
+        st.error("לא ניתן להתחבר לשרת כרגע.")
+    except APIClientError as e:
+        st.error(extract_error_message(e))
+    except Exception as e:
+        st.error(f"שגיאה לא צפויה: {e}")
+        
 def clear_main_filters() -> None:
     st.session_state.main_search_query = ""
     st.session_state.main_use_price = False
@@ -109,6 +155,7 @@ try:
         show_count=False,
         enable_add_to_cart=True,
         enable_favorites=True,
+        on_add_to_order=handle_add_to_order,
     )
 
 except APIConnectionError:

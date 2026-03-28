@@ -25,6 +25,9 @@ class OrdersService:
             },
         )
 
+    def add_to_order(self, item_id: int, quantity: int = 1) -> dict[str, Any] | None:
+        return self.add_item(item_id=item_id, quantity=quantity)
+
     def update_quantity(self, item_id: int, quantity: int) -> dict[str, Any] | None:
         return api.post(
             "/orders/cart/update-quantity",
