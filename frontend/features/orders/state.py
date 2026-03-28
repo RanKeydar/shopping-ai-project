@@ -50,15 +50,17 @@ def ensure_default_selected_order(
 
     if temp_order is not None:
         temp_order_id = temp_order.get("id")
-        current_selected_id = get_selected_order_id()
         shipping_address = (temp_order.get("shipping_address") or "").strip()
 
         set_selected_order_id(temp_order_id)
 
-        if current_selected_id != temp_order_id or not st.session_state.get(SHIPPING_ADDRESS_KEY):
+        if (
+            current_selected_id != temp_order_id
+            or not st.session_state.get(SHIPPING_ADDRESS_KEY)
+        ):
             st.session_state[SHIPPING_ADDRESS_KEY] = shipping_address
 
-    return
+        return
 
     if selected_order_exists:
         return
@@ -67,6 +69,7 @@ def ensure_default_selected_order(
         set_selected_order_id(orders_list[0].get("id"))
     else:
         set_selected_order_id(None)
+        st.session_state[SHIPPING_ADDRESS_KEY] = ""
 
 def sync_pending_shipping_address() -> None:
     pending_shipping_address = st.session_state.get(PENDING_SHIPPING_ADDRESS_KEY)

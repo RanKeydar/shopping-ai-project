@@ -22,6 +22,19 @@ def _recalculate_order_total(order) -> None:
         total += float(row.unit_price) * int(row.quantity)
     order.total_price = round(total, 2)
 
+def _delete_temp_order_if_empty(db: Session, user_id: int):
+    order = _reload_temp_order(db, user_id)
+    if order is None:
+        return None
+
+    if order.items:
+        _recalculate_order_total(order)
+        db.flush()
+        return order
+
+    db.delete(order)
+    db.flush()
+    return None
 
 def add_item_to_cart(db: Session, user_id: int, item_id: int, quantity: int):
     if quantity <= 0:
@@ -81,13 +94,10 @@ def update_cart_item_quantity(db: Session, user_id: int, item_id: int, quantity:
         orders_repository.delete_order_item(db, row)
         db.flush()
 
-        order = _reload_temp_order(db, user_id)
-        if order is not None:
-            _recalculate_order_total(order)
-            db.flush()
+        order = _delete_temp_order_if_empty(db, user_id)
 
         db.commit()
-        return _reload_temp_order(db, user_id)
+        return order
 
     item = orders_repository.get_item_by_id(db, item_id)
     if item is None:
@@ -105,7 +115,6 @@ def update_cart_item_quantity(db: Session, user_id: int, item_id: int, quantity:
     db.commit()
     return _reload_temp_order(db, user_id)
 
-
 def remove_item_from_cart(db: Session, user_id: int, item_id: int):
     order = orders_repository.get_temp_order_by_user(db, user_id)
     if order is None:
@@ -118,14 +127,10 @@ def remove_item_from_cart(db: Session, user_id: int, item_id: int):
     orders_repository.delete_order_item(db, row)
     db.flush()
 
-    order = _reload_temp_order(db, user_id)
-    if order is not None:
-        _recalculate_order_total(order)
-        db.flush()
+    order = _delete_temp_order_if_empty(db, user_id)
 
     db.commit()
-    return _reload_temp_order(db, user_id)
-
+    return order
 
 def checkout_cart(db: Session, user_id: int, shipping_address: str):
     order = orders_repository.get_temp_order_by_user(db, user_id)

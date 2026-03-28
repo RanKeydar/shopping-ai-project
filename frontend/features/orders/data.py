@@ -43,6 +43,10 @@ def get_order_items(order: dict) -> list[dict]:
     return []
 
 
+def has_order_items(order: dict) -> bool:
+    return len(get_order_items(order)) > 0
+
+
 def get_order_total(order: dict) -> float:
     total = order.get("total_price", order.get("total", 0))
     try:
@@ -61,6 +65,10 @@ def normalize_status(order: dict) -> str:
         return ""
 
     return str(status).strip().upper()
+
+
+def is_non_empty_temp_order(order: dict) -> bool:
+    return normalize_status(order) == "TEMP" and has_order_items(order)
 
 
 def display_status(order: dict) -> str:
@@ -101,13 +109,17 @@ def load_orders_data() -> tuple[dict | None, list[dict]]:
 def build_orders_list(cart: dict | None, orders: list[dict]) -> list[dict]:
     result: list[dict] = []
 
-    if cart and normalize_status(cart) == "TEMP":
+    if cart and is_non_empty_temp_order(cart):
         result.append(cart)
 
     for order in orders:
         if normalize_status(order) == "TEMP":
+            if not has_order_items(order):
+                continue
+
             if cart and order.get("id") == cart.get("id"):
                 continue
+
         result.append(order)
 
     result.sort(
@@ -122,7 +134,7 @@ def build_orders_list(cart: dict | None, orders: list[dict]) -> list[dict]:
 
 def get_temp_order(orders_list: list[dict]) -> dict | None:
     for order in orders_list:
-        if normalize_status(order) == "TEMP":
+        if is_non_empty_temp_order(order):
             return order
     return None
 
