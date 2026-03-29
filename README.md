@@ -8,6 +8,8 @@ The system allows users to browse products, manage a shopping cart, place orders
 
 The application is built using a modern microservice-style architecture with FastAPI, Streamlit, MySQL, Redis, and OpenAI integration.
 
+> ✅ The project is fully self-contained – no external data sources are required.
+
 ---
 
 ## Main Features
@@ -77,6 +79,29 @@ The application is built using a modern microservice-style architecture with Fas
 
 ---
 
+## Data Initialization
+
+The application includes a preloaded product catalog (193 items) that is automatically initialized on startup.
+
+### How it works
+
+* On application startup, the backend checks if the `items` table is empty.
+* If empty, product data is loaded from a local JSON file:
+
+```
+backend/app/data/products_seed.json
+```
+
+* This guarantees that every run starts with the same dataset.
+
+### Why this approach?
+
+* No dependency on external APIs (e.g., DummyJSON)
+* Fully deterministic and reproducible environment
+* Faster startup and reliable evaluation/demo
+
+---
+
 ## Tech Stack
 
 ### Backend
@@ -107,6 +132,7 @@ backend/
     services/
     repositories/
     models/
+    data/
 
 frontend/
   components/
@@ -136,6 +162,19 @@ docker compose up --build
 * Frontend: http://localhost:8501
 * Backend API: http://localhost:8000
 * Swagger: http://localhost:8000/docs
+
+The database will be automatically initialized with product data if empty.
+
+---
+
+## Optional: Product Import (Development Only)
+
+The system includes endpoints for importing products from an external API (DummyJSON):
+
+* `POST /product-import/seed` – import a single page
+* `POST /product-import/seed-all` – import all products
+
+These endpoints are intended for development and are not required for normal usage.
 
 ---
 

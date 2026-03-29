@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
+    SECRET_KEY: str = "change-me-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
     CHAT_SESSION_LIMIT: int = 5
     CHAT_SESSION_TTL_SECONDS: int = 43200  # 12 hours
 

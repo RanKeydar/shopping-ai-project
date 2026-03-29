@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from services.api_client import api as api_client
 
+
 class ChatService:
     def ask(self, prompt: str) -> dict:
         return api_client.post(
             "/chat-assistant",
-            json={"prompt": prompt},
+            data={"prompt": prompt},
         )
 
     def get_remaining_prompts(self) -> int:

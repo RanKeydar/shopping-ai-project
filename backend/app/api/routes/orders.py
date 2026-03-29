@@ -7,8 +7,11 @@ from app.schemas.orders import AddItemRequest, CheckoutRequest, UpdateQuantityRe
 from app.services import orders_service
 from app.api.deps.current_user import get_current_user
 
-router = APIRouter(prefix="/orders", tags=["orders"])
+from redis.asyncio import Redis
+from app.cache.redis_client import get_redis
+from app.cache.invalidate import invalidate_items_list_cache
 
+router = APIRouter(prefix="/orders", tags=["orders"])
 
 def _serialize_order(order):
     if order is None:
@@ -33,7 +36,6 @@ def _serialize_order(order):
         ],
     }
 
-
 def _handle_service_error(exc: Exception):
     if isinstance(exc, NotFoundError):
         raise HTTPException(status_code=404, detail=str(exc))
@@ -42,7 +44,6 @@ def _handle_service_error(exc: Exception):
     if isinstance(exc, InsufficientStockError):
         raise HTTPException(status_code=400, detail=str(exc))
     raise HTTPException(status_code=500, detail="Internal server error")
-
 
 @router.post("/cart/add-item")
 def add_item_to_cart(
@@ -61,7 +62,6 @@ def add_item_to_cart(
     except Exception as exc:
         _handle_service_error(exc)
 
-
 @router.post("/cart/update-quantity")
 def update_cart_quantity(
     payload: UpdateQuantityRequest,
@@ -79,7 +79,6 @@ def update_cart_quantity(
     except Exception as exc:
         _handle_service_error(exc)
 
-
 @router.delete("/cart/remove-item/{item_id}")
 def remove_item_from_cart(
     item_id: int,
@@ -96,12 +95,12 @@ def remove_item_from_cart(
     except Exception as exc:
         _handle_service_error(exc)
 
-
 @router.post("/cart/checkout")
-def checkout_cart(
+async def checkout_cart(          # ← async במקום def
     payload: CheckoutRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    redis: Redis = Depends(get_redis),   # ← הוסף
 ):
     try:
         order = orders_service.checkout_cart(
@@ -109,10 +108,10 @@ def checkout_cart(
             user_id=current_user.id,
             shipping_address=payload.shipping_address,
         )
+        await invalidate_items_list_cache(redis)   # ← הוסף
         return _serialize_order(order)
     except Exception as exc:
         _handle_service_error(exc)
-
 
 @router.get("/cart")
 def get_active_cart(
@@ -121,7 +120,6 @@ def get_active_cart(
 ):
     cart = orders_service.get_active_cart(db=db, user_id=current_user.id)
     return _serialize_order(cart)
-
 
 @router.get("")
 def get_orders(
