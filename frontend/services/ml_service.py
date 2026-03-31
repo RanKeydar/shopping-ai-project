@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
-
 from services.api_client import api
 
 
 class MLService:
-    @staticmethod
-    def predict_spend(features: dict[str, float]) -> dict[str, Any]:
-        return api.post(
-            "/ml/predict-spend",
-            data={"features": features},
-        )
+    def predict_spend(self, user_id: int | None = None) -> dict:
+        payload = {}
+        if user_id is not None:
+            payload["user_id"] = int(user_id)
+
+        return api.post("/ml/predict-spend", data=payload)
 
 
 ml_service = MLService()

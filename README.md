@@ -246,15 +246,57 @@ Manual test scenarios include:
 
 ---
 
-## Future Improvements (Bonus)
+ ## Bonus ML Feature (Implemented)
 
-* Machine learning model for user behavior prediction
-* Personalized recommendations
-* Spend prediction per user
-* Advanced analytics
+diff --git a/README.md b/README.md
+index 31cd784b4b3659df4b593736bc6a74a36d66bd04..251a6d169e64dc45fff012590e777b3ba90cf83d 100644
+--- a/README.md
++++ b/README.md
+@@ -224,37 +224,46 @@ This follows real-world e-commerce behavior and prevents stock locking.
+ 
+ ---
+ 
+ ### 5. Rate Limiting
+ 
+ * Redis-based session tracking
+ * 5 prompts per session
+ * Consistent across refreshes
+ 
+ ---
+ 
+ ## Testing
+ 
+ Manual test scenarios include:
+ 
+ * Authentication flow
+ * Cart lifecycle (create / update / delete)
+ * Checkout behavior
+ * Stock validation
+ * Favorites persistence
+ * Chat assistant limits
+ * User deletion cascade
+ 
+ ---
+ 
++## Bonus ML Feature (Implemented)
+ 
 
----
+A supervised ML bonus feature is now included:
 
-## Author
+* Training dataset: `backend/app/ml/data/user_spend_training.csv`
+* Training script: `python backend/app/ml/train.py`
+* Artifacts: `backend/app/ml/model.joblib` + `backend/app/ml/metadata.json`
+* Prediction API: `POST /ml/predict-spend` (authenticated)
+* Streamlit page: `frontend/pages/5_Bonus_Prediction.py`
 
-This project was developed as part of an AI + Python development course, focusing on practical system design, backend architecture, and AI integration.
+Use this flow:
+
+1. Train model locally (`python backend/app/ml/train.py`).
+2. Run the stack (`docker compose up --build`).
+3. Login and open **Bonus Prediction** page.
+ 
+ ---
+ 
+ ## Author
+ 
+ This project was developed as part of an AI + Python development course, focusing on practical system design, backend architecture, and AI integration.

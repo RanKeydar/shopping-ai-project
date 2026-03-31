@@ -1,94 +1,92 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import joblib
-import numpy as np
+import pandas as pd
 from sklearn.dummy import DummyRegressor
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
-from app.ml.dataset import MODEL_FEATURES, build_spend_dataset
+
+BASE_DIR = Path(__file__).resolve().parent
+DATASET_PATH = BASE_DIR / "data" / "user_spend_training.csv"
+MODEL_PATH = BASE_DIR / "model.joblib"
+METADATA_PATH = BASE_DIR / "metadata.json"
+
+FEATURES = [
+    "orders_count_90d",
+    "closed_orders_count_90d",
+    "avg_order_value_90d",
+    "max_order_value_90d",
+    "items_bought_90d",
+    "days_since_last_order",
+    "favorites_count",
+]
+TARGET = "spend_next_30d"
 
 
-MODEL_PATH = Path("app/ml/models/spend_model.pkl")
+def main() -> None:
+    df = pd.read_csv(DATASET_PATH)
 
+    missing = [column for column in FEATURES + [TARGET] if column not in df.columns]
+    if missing:
+        raise ValueError(f"Dataset is missing required columns: {missing}")
 
-def train_model() -> None:
-    print("📦 Building dataset...")
-    df = build_spend_dataset(num_users=300)
+    x = df[FEATURES]
+    y = df[TARGET]
 
-    X = df[MODEL_FEATURES]
-    y = df["target_next_order_total"]
-
-    print(f"Dataset shape: {df.shape}")
-    print(f"Unique users: {df['user_id'].nunique()}")
-    print(f"Features: {len(MODEL_FEATURES)}")
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
+    x_train, x_val, y_train, y_val = train_test_split(
+        x,
         y,
         test_size=0.2,
         random_state=42,
     )
 
-    print("🪨 Training baseline...")
-    baseline = DummyRegressor(strategy="mean")
-    baseline.fit(X_train, y_train)
-    baseline_pred = baseline.predict(X_test)
+    baseline = DummyRegressor(strategy="median")
+    baseline.fit(x_train, y_train)
+    baseline_pred = baseline.predict(x_val)
 
-    baseline_mae = mean_absolute_error(y_test, baseline_pred)
-    baseline_rmse = np.sqrt(mean_squared_error(y_test, baseline_pred))
-
-    print("🧠 Training GradientBoosting model...")
-    model = GradientBoostingRegressor(
-        n_estimators=200,
-        learning_rate=0.05,
-        max_depth=2,
+    model = RandomForestRegressor(
+        n_estimators=220,
+        max_depth=10,
         random_state=42,
     )
-    model.fit(X_train, y_train)
+    model.fit(x_train, y_train)
+    pred = model.predict(x_val)
 
-    print("📊 Evaluating...")
-    y_pred = model.predict(X_test)
+    metrics = {
+        "baseline": {
+            "mae": round(float(mean_absolute_error(y_val, baseline_pred)), 4),
+            "rmse": round(float(mean_squared_error(y_val, baseline_pred) ** 0.5), 4),
+            "r2": round(float(r2_score(y_val, baseline_pred)), 4),
+        },
+        "model": {
+            "mae": round(float(mean_absolute_error(y_val, pred)), 4),
+            "rmse": round(float(mean_squared_error(y_val, pred) ** 0.5), 4),
+            "r2": round(float(r2_score(y_val, pred)), 4),
+        },
+    }
 
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-
-    print("\n=== Metrics ===")
-    print(f"Baseline MAE   : {baseline_mae:.2f}")
-    print(f"Baseline RMSE  : {baseline_rmse:.2f}")
-    print(f"Model MAE      : {mae:.2f}")
-    print(f"Model RMSE     : {rmse:.2f}")
-    print(f"MAE improvement: {baseline_mae - mae:.2f}")
-    print(f"RMSE improve.  : {baseline_rmse - rmse:.2f}")
-
-    print("\n=== Top Feature Importances ===")
-    feature_importances = sorted(
-        zip(MODEL_FEATURES, model.feature_importances_),
-        key=lambda x: x[1],
-        reverse=True,
-    )
-
-    for feature_name, importance in feature_importances[:10]:
-        print(f"{feature_name:<35} {importance:.4f}")
-
-    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
 
-    print(f"\n💾 Model saved to: {MODEL_PATH}")
+    metadata = {
+        "model_version": "v1",
+        "features": FEATURES,
+        "target": TARGET,
+        "metrics": metrics,
+    }
+    METADATA_PATH.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
-    print("\n🔮 Sample prediction:")
-    sample_row = X_test.iloc[[0]]
-    actual = y_test.iloc[0]
-    predicted = model.predict(sample_row)[0]
-    baseline_value = baseline.predict(sample_row)[0]
-
-    print(f"Actual      : {actual:.2f}")
-    print(f"Predicted   : {predicted:.2f}")
-    print(f"Baseline    : {baseline_value:.2f}")
+    print(f"Saved model to: {MODEL_PATH}")
+    print(f"Saved metadata to: {METADATA_PATH}")
+    print(json.dumps(metrics, indent=2))
 
 
 if __name__ == "__main__":
-    train_model()
+    main()

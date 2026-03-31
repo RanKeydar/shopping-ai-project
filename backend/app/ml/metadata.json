@@ -1,0 +1,25 @@
+{
+    "model_version": "v1",
+    "features": [
+        "orders_count_90d",
+        "closed_orders_count_90d",
+        "avg_order_value_90d",
+        "max_order_value_90d",
+        "items_bought_90d",
+        "days_since_last_order",
+        "favorites_count"
+    ],
+    "target": "spend_next_30d",
+    "metrics": {
+        "baseline": {
+            "mae": 318.1923,
+            "rmse": 482.025,
+            "r2": -0.0334
+        },
+        "model": {
+            "mae": 165.795,
+            "rmse": 273.3813,
+            "r2": 0.6676
+        }
+    }
+}
