@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     CHAT_SESSION_LIMIT: int = 5
     CHAT_SESSION_TTL_SECONDS: int = 43200  # 12 hours
+    SITE_OWNER_USERNAMES: str = "admin"
 
     @property
     def database_url(self) -> str:
@@ -31,5 +32,12 @@ class Settings(BaseSettings):
     def redis_url(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
+    @property
+    def site_owner_usernames(self) -> set[str]:
+        return {
+            username.strip().lower()
+            for username in self.SITE_OWNER_USERNAMES.split(",")
+            if username.strip()
+        }
 
 settings = Settings()

@@ -248,11 +248,22 @@ Manual test scenarios include:
 
  ## Bonus ML Feature (Implemented)
 
-diff --git a/README.md b/README.md
-index 31cd784b4b3659df4b593736bc6a74a36d66bd04..251a6d169e64dc45fff012590e777b3ba90cf83d 100644
---- a/README.md
-+++ b/README.md
-@@ -224,37 +224,46 @@ This follows real-world e-commerce behavior and prevents stock locking.
+A supervised ML bonus feature is now included:
+
+* Training dataset: `backend/app/ml/data/user_spend_training.csv`
+* Training script: `python backend/app/ml/train.py`
+* Artifacts: `backend/app/ml/model.joblib` + `backend/app/ml/metadata.json`
+* Prediction APIs:
+  * `POST /ml/predict-spend` (owner-only, predict for one user by `user_id`)
+  * `GET /ml/predict-spend/users` (owner-only, predict for multiple users)
+* Streamlit page: `frontend/pages/5_Bonus_Prediction.py`
+* Owner access is controlled by `SITE_OWNER_USERNAMES` (comma-separated usernames, default: `admin`)
+
+Use this flow:
+
+1. Train model locally (`python backend/app/ml/train.py`).
+2. Run the stack (`docker compose up --build`).
+3. Login with an owner account and open **Bonus Prediction** page.
  
  ---
  
