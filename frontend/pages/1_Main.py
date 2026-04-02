@@ -144,22 +144,16 @@ with action_cols[1]:
 
 try:
     with st.spinner("טוען פריטים..."):
-        normalized_query = search_query.strip()
-
-        items = list_items(
-            price_op=price_op if use_price else None,
-            price=price if use_price else None,
-            stock_op=stock_op if use_stock else None,
-            stock=stock if use_stock else None,
-        )
-
-        items = filter_and_sort_items_by_query(items, normalized_query)
-
-    if normalized_query or use_price or use_stock:
-        st.caption(f"נמצאו {len(items)} פריטים")
-    else:
-        st.caption(f"מוצגים כל הפריטים הזמינים ({len(items)})")
-
+         normalized_query = search_query.strip()
+ 
+         items = list_items(
+            q=normalized_query if normalized_query else None,
+             price_op=price_op if use_price else None,
+             price=price if use_price else None,
+             stock_op=stock_op if use_stock else None,
+             stock=stock if use_stock else None,
+         )
+ 
     render_items_grid(
         items,
         columns=3,

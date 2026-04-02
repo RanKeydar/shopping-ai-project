@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app.api.deps.current_user import get_current_user_optional
 from app.db import get_db
+from app.models import User
 from app.schemas.chat import ChatRequest
 from app.services.chat_rate_limit_service import (
     consume_prompt,
@@ -18,7 +21,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat-assistant", tags=["chat-assistant"])
 
 
-def get_chat_identifier(request: Request) -> str:
+def get_chat_identifier(request: Request, current_user: Optional[User]) -> str:
+    if current_user is not None:
+        return f"user:{current_user.id}"
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
         ip = forwarded_for.split(",")[0].strip()
@@ -29,8 +34,11 @@ def get_chat_identifier(request: Request) -> str:
 
 
 @router.get("/remaining")
-async def get_chat_remaining(request: Request):
-    identifier = get_chat_identifier(request)
+async def get_chat_remaining(
+    request: Request,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    identifier = get_chat_identifier(request, current_user)
     remaining = await get_remaining_prompts(identifier)
 
     return {
@@ -43,8 +51,9 @@ async def chat_with_assistant(
     payload: ChatRequest,
     request: Request,
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    identifier = get_chat_identifier(request)
+    identifier = get_chat_identifier(request, current_user)
 
     try:
         prompt = payload.prompt.strip()

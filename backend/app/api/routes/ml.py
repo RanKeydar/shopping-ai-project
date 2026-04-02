@@ -45,25 +45,19 @@ def predict_spend(
         if not target_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        result = predict_user_spend_30d(db=db, user_id=target_user.id)
+        prediction, model_version = predict_user_spend_30d(db=db, user_id=target_user.id)
     except HTTPException:
         raise
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=503, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Prediction service unavailable")
 
     return SpendPredictionResponse(
         user_id=target_user.id,
         username=target_user.username,
-        predicted_spend_usd_30d=result["prediction"],
-        model_version=result["model_version"],
-        segment=result["segment"],
-        confidence=result["confidence"],
-        top_reasons=result["reasons"],
-        recommended_action=result["recommended_action"],
+        predicted_spend_usd_30d=prediction,
+        model_version=model_version,
         generated_at=datetime.now(timezone.utc),
     )
 
@@ -93,25 +87,19 @@ def predict_spend_for_users(
     rows: list[UserSpendPredictionRow] = []
     try:
         for user in users:
-            result = predict_user_spend_30d(db=db, user_id=user.id)
+            prediction, model_version = predict_user_spend_30d(db=db, user_id=user.id)
             rows.append(
                 UserSpendPredictionRow(
                     user_id=user.id,
                     username=user.username,
-                    predicted_spend_usd_30d=result["prediction"],
-                    model_version=result["model_version"],
-                    segment=result["segment"],
-                    confidence=result["confidence"],
-                    top_reasons=result["reasons"],
-                    recommended_action=result["recommended_action"],
+                    predicted_spend_usd_30d=prediction,
+                    model_version=model_version,
                 )
             )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=503, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Prediction service unavailable")
 
     return UsersSpendPredictionResponse(
         generated_at=datetime.now(timezone.utc),

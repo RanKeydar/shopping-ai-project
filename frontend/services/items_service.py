@@ -1,8 +1,11 @@
 import os
 from typing import Any, Dict, List, Optional
 import time
+import logging
 
 from services.api_client import api
+
+logger = logging.getLogger(__name__)
 
 API_PREFIX = os.getenv("API_PREFIX", "").strip()
 if API_PREFIX:
