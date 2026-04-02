@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 from app.models import Favorite
 from app.models.enums import OrderStatus
 from app.repositories.orders_repository import list_orders_by_user
-
+from app.services.ml_interpretation import (
+    build_segment,
+    build_confidence,
+    build_reasons,
+    build_recommended_action,
+)
 
 BASE_DIR = Path(__file__).resolve().parents[1] / "ml"
 MODEL_PATH = BASE_DIR / "model.joblib"
@@ -96,4 +101,27 @@ def predict_user_spend_30d(db: Session, user_id: int) -> tuple[float, str]:
     x = pd.DataFrame([row], columns=features)
 
     prediction = float(model.predict(x)[0])
-    return round(max(0.0, prediction), 2), model_version
+    prediction = round(max(0.0, prediction), 2)
+
+    segment = build_segment(
+        prediction,
+        feature_row["days_since_last_order"],
+    )
+
+    confidence = build_confidence(
+        feature_row["closed_orders_count_90d"],
+    )
+
+    reasons = build_reasons(feature_row)
+
+    action = build_recommended_action(segment)
+
+    return {
+        "prediction": prediction,
+        "model_version": model_version,
+        "segment": segment,
+        "confidence": confidence,
+        "reasons": reasons,
+        "recommended_action": action,
+        "features": feature_row,
+    }

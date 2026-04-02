@@ -8,7 +8,7 @@ The system allows users to browse products, manage a shopping cart, place orders
 
 The application is built using a modern microservice-style architecture with FastAPI, Streamlit, MySQL, Redis, and OpenAI integration.
 
-> ✅ The project is fully self-contained – no external data sources are required.
+The project is fully self-contained – no external data sources are required.
 
 ---
 
@@ -39,7 +39,6 @@ The application is built using a modern microservice-style architecture with Fas
 * Automatic cart creation when needed
 * Cart is deleted automatically when empty
 * Checkout process:
-
   * Validates stock
   * Reduces inventory only on checkout
   * Converts TEMP → CLOSED order
@@ -70,9 +69,7 @@ The application is built using a modern microservice-style architecture with Fas
 
 * Prevent ordering beyond available stock
 * Cascade deletion:
-
   * Deleting a user removes:
-
     * Orders
     * Order items
     * Favorites
@@ -83,55 +80,83 @@ The application is built using a modern microservice-style architecture with Fas
 
 The application includes a preloaded product catalog (193 items) that is automatically initialized on startup.
 
-### How it works
-
-* On application startup, the backend checks if the `items` table is empty.
-* If empty, product data is loaded from a local JSON file:
-
-```
+On application startup, the backend checks if the items table is empty.
+If empty, product data is loaded from:
 backend/app/data/products_seed.json
-```
 
-* This guarantees that every run starts with the same dataset.
+This guarantees a fully reproducible environment.
 
-### Why this approach?
+---
 
-* No dependency on external APIs (e.g., DummyJSON)
-* Fully deterministic and reproducible environment
-* Faster startup and reliable evaluation/demo
+## Bonus ML Feature (Explainable Spend Prediction)
+
+A supervised ML model predicts user spending for the next 30 days.
+
+# What makes it useful
+This is not just a raw prediction model — it includes business interpretation:
+
+Predicted spend (USD)
+User segmentation:
+High value
+Medium value
+Low value
+At-risk users
+Confidence level (based on user activity)
+Explainability:
+Key reasons behind the prediction
+Recommended actions:
+Upsell / cross-sell / retention suggestions
+
+# API Endpoints
+POST /ml/predict-spend – predict for a single user (owner only)
+GET /ml/predict-spend/users – bulk prediction for multiple users
+
+# ML Artifacts
+Dataset: backend/app/ml/data/user_spend_training.csv
+Training script:
+python backend/app/ml/train.py
+Model files:
+model.joblib
+metadata.json
+
+# ML Frontend
+Streamlit dashboard:
+frontend/pages/5_Spend_Prediction.py
+
+# Usage Flow
+Train the model:
+python backend/app/ml/train.py
+Run the system:
+docker compose up --build
+Login as an owner (e.g., admin)
+Open Spend Prediction page
 
 ---
 
 ## Tech Stack
 
-### Backend
-
-* FastAPI
-* SQLAlchemy
-* MySQL
-* Redis (caching + rate limiting)
-* OpenAI API
-
-### Frontend
-
-* Streamlit
-
-### Infrastructure
-
-* Docker Compose
-* Multi-service architecture
+# Backend
+FastAPI
+SQLAlchemy
+MySQL
+Redis
+OpenAI API
+Scikit-learn
+# Frontend
+Streamlit
+# Infrastructure
+Docker Compose
 
 ---
 
 ## Project Structure
-
-```
 backend/
   app/
     api/
     services/
     repositories/
     models/
+    ml/
     data/
 
 frontend/
@@ -140,174 +165,63 @@ frontend/
   features/
 
 docker-compose.yml
-```
 
 ---
 
 ## Running the Project
 
-### Prerequisites
-
-* Docker
-* Docker Compose
-
-### Run locally
-
-```bash
+# Prerequisites
+Docker
+Docker Compose
+# Run locally
 docker compose up --build
-```
-
-### Services
-
-* Frontend: http://localhost:8501
-* Backend API: http://localhost:8000
-* Swagger: http://localhost:8000/docs
-
-The database will be automatically initialized with product data if empty.
-
----
-
-## Optional: Product Import (Development Only)
-
-The system includes endpoints for importing products from an external API (DummyJSON):
-
-* `POST /product-import/seed` – import a single page
-* `POST /product-import/seed-all` – import all products
-
-These endpoints are intended for development and are not required for normal usage.
+# Services
+Frontend: http://localhost:8501
+Backend API: http://localhost:8000
+Swagger: http://localhost:8000/docs
 
 ---
 
 ## Key Design Decisions
 
-### 1. Cart Model (TEMP Order)
+# Cart Model (TEMP Order)
+Simplifies cart logic
+Seamless transition to checkout
 
-Instead of a separate cart entity, the system uses an order with status `TEMP`.
+# Stock Handling
+Stock reduced only at checkout
+Prevents stock locking issues
 
-Advantages:
+# Search Architecture
+Unified logic across all pages
+Hebrew → English normalization
+Avoids false matches
 
-* Simpler data model
-* Natural transition to checkout
-* Easier history tracking
+# AI Integration
+Hybrid approach:
+  Rule-based + GPT fallback
+Retrieval-based context (no hallucinations)
+Structured responses
 
----
-
-### 2. Stock Handling
-
-* Stock is NOT reduced when adding to cart
-* Stock is reduced ONLY on checkout
-
-This follows real-world e-commerce behavior and prevents stock locking.
-
----
-
-### 3. Search Architecture
-
-* Unified search logic across pages
-* Tokenization and normalization
-* Hebrew → English matching
-* Avoids false matches (e.g., "hair" ≠ "chair")
-
----
-
-### 4. AI Integration
-
-* Hybrid approach:
-
-  * Rule-based intents
-  * GPT-based fallback
-* Retrieval-based context (no hallucinations)
-* Structured responses:
-
-  * Recommendation
-  * Alternatives
-
----
-
-### 5. Rate Limiting
-
-* Redis-based session tracking
-* 5 prompts per session
-* Consistent across refreshes
+# ML Design
+Feature-based user behavior modeling
+Snapshot-based training data
+Explainable predictions (not black-box only)
 
 ---
 
 ## Testing
-
 Manual test scenarios include:
 
-* Authentication flow
-* Cart lifecycle (create / update / delete)
-* Checkout behavior
-* Stock validation
-* Favorites persistence
-* Chat assistant limits
-* User deletion cascade
+Authentication flow
+Cart lifecycle
+Checkout validation
+Favorites persistence
+Chat assistant behavior
+ML prediction endpoints
+User deletion cascade
 
 ---
 
- ## Bonus ML Feature (Implemented)
-
-A supervised ML bonus feature is now included:
-
-* Training dataset: `backend/app/ml/data/user_spend_training.csv`
-* Training script: `python backend/app/ml/train.py`
-* Artifacts: `backend/app/ml/model.joblib` + `backend/app/ml/metadata.json`
-* Prediction APIs:
-  * `POST /ml/predict-spend` (owner-only, predict for one user by `user_id`)
-  * `GET /ml/predict-spend/users` (owner-only, predict for multiple users)
-* Streamlit page: `frontend/pages/5_Bonus_Prediction.py`
-* Owner access is controlled by `SITE_OWNER_USERNAMES` (comma-separated usernames, default: `admin`)
-
-Use this flow:
-
-1. Train model locally (`python backend/app/ml/train.py`).
-2. Run the stack (`docker compose up --build`).
-3. Login with an owner account and open **Bonus Prediction** page.
- 
- ---
- 
- ### 5. Rate Limiting
- 
- * Redis-based session tracking
- * 5 prompts per session
- * Consistent across refreshes
- 
- ---
- 
- ## Testing
- 
- Manual test scenarios include:
- 
- * Authentication flow
- * Cart lifecycle (create / update / delete)
- * Checkout behavior
- * Stock validation
- * Favorites persistence
- * Chat assistant limits
- * User deletion cascade
- 
- ---
- 
-+## Bonus ML Feature (Implemented)
- 
-
-A supervised ML bonus feature is now included:
-
-* Training dataset: `backend/app/ml/data/user_spend_training.csv`
-* Training script: `python backend/app/ml/train.py`
-* Artifacts: `backend/app/ml/model.joblib` + `backend/app/ml/metadata.json`
-* Prediction API: `POST /ml/predict-spend` (authenticated)
-* Streamlit page: `frontend/pages/5_Bonus_Prediction.py`
-
-Use this flow:
-
-1. Train model locally (`python backend/app/ml/train.py`).
-2. Run the stack (`docker compose up --build`).
-3. Login and open **Bonus Prediction** page.
- 
- ---
- 
- ## Author
- 
- This project was developed as part of an AI + Python development course, focusing on practical system design, backend architecture, and AI integration.
+## Author
+This project was developed as part of an AI + Python development course, focusing on practical system design, backend architecture, and AI integration.

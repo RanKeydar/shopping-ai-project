@@ -14,6 +14,10 @@ class SpendPredictionResponse(BaseModel):
     username: str
     predicted_spend_usd_30d: float
     model_version: str
+    segment: str
+    confidence: str
+    top_reasons: list[str]
+    recommended_action: str
     generated_at: datetime
 
 
@@ -22,6 +26,10 @@ class UserSpendPredictionRow(BaseModel):
     username: str
     predicted_spend_usd_30d: float
     model_version: str
+    segment: str
+    confidence: str
+    top_reasons: list[str]
+    recommended_action: str
 
 
 class UsersSpendPredictionResponse(BaseModel):
